@@ -22,23 +22,29 @@ Function Fn_UpdateTestResult()
 	Dim strResult
 
 '  Condition to set the Test  Case Result  by the data obtained from the validation done on application
-		If TestResult = Fail Then
+		If Environment("CurTestResult") = False Then
 			Environment("Status") = "Fail"
 			Environment("Fail_Count")  = Environment("Fail_Count")  + 1
-			Call Fn_QCTestDetails ( "Update", Environment("TC_NO") &"-Failed;" )
+			If Trim( Environment( "QC_TestName") ) <> "" Then
+				Call FALMTestSetStatusChange( Environment( "QC_TestName"), Environment( "strQCLabTestSet"), "Failed" )
+			End If
+'			Call Fn_QCTestDetails ( "Update", Environment("TC_NO") &"-Failed;" )
 		Else
 			Environment("Status") = "Pass"
             Environment("Pass_Count") = Environment("Pass_Count") + 1
-			Call Fn_QCTestDetails ( "Update", Environment("TC_NO") &"-Passed;" )
+'			Call Fn_QCTestDetails ( "Update", Environment("TC_NO") &"-Passed;" )
+			If Trim( Environment( "QC_TestName") ) <> "" Then
+				Call FALMTestSetStatusChange( Environment( "QC_TestName"), Environment( "strQCLabTestSet"), "Passed" )
+			End If
 		End If
 '  Test Results to be reported be given here with Semicolon as delimiter seperating the columns
 		'strResult = "ResultValue1;ResultValu2;ResultValue3" 'ResultValue1;ResultValu2;...;ResultValueN
 
-	If Environment( "Output" ) = "Excel" Then
-		Call Fn_UpdateExcel( strResult )
-	ElseIf Environment( "Output" ) = "HTML" Then
-		Call Fn_TableName( strResult, Environment("Status"), Environment( "strCurModule" ) )
-	End If
+'	If Environment( "Output" ) = "Excel" Then
+'		Call Fn_UpdateExcel( strResult )
+'	ElseIf Environment( "Output" ) = "HTML" Then
+'		Call Fn_TableName( strResult, Environment("Status"), Environment( "strCurModule" ) )
+'	End If
 
 End Function
 
@@ -270,7 +276,7 @@ Function Fn_CreateHTML( strFlowStatus, strResName )
 		TotalVal = CInt( Environment( "Pass_Count" ) ) + CInt( Environment( "Fail_Count" ) )
 		Call Fn_TableName ( "Total Number of Test Cases Executed;"&TotalVal , "General" ,Environment( "strCurModule" )  )
 		Call Fn_TableName ( "Total Number of Test Cases Passed;"&  Environment("Pass_Count") , "General" ,Environment( "strCurModule" )  )
-		Call Fn_TableName ( "Total Number of Test Cases Failed;" & Environment("Fail_Count") , "General"   , Environment( "strCurModule" )  )
+		Call Fn_TableName ( "Total Number of Test Cases Failed;" & Environment("Fail_Count") , "Failed"   , Environment( "strCurModule" )  )
 		Call Fn_TableName ( "Total Time taken for Execution of Test Cases;" & TotTime , "General" , Environment( "strCurModule" )  )
 		Environment( "Result_Loc" ) = Environment( strResName )
 
@@ -337,6 +343,22 @@ Function Fn_TableName( strTName , strRName, strResName )
 		If strRName =  "Header"  Then
 			strTName =  Replace ( strTName, ";", "::" )
 		End If
+
+			If strRName =  "TCName"  Then
+				objOPFile1.writeLine( "<TR>" )
+			 strName = Split ( strTName , ";" , - 1 , 1 )
+			 objOPFile1.writeLine( "<TD align=center width='3%' bgColor=#ffffe1 height=30>" )
+			 objOPFile1.writeLine( "<FONT face=Verdana color= Blue size=1><b> " & strName(0) & "</b></Font></TD>" )
+				 objOPFile1.writeLine( "<TD colspan =3 align=center width='3%' bgColor=#ffffe1 height=30>" )
+			 objOPFile1.writeLine( "<FONT face=Verdana color= Blue size=1><b> " & strName(1) & "</b></Font></TD>" )
+			objOPFile1.writeLine( "</TR>" )
+			Exit Function
+		End If
+'				If strRName =  "TCName"  Then
+'			 objOPFile1.writeLine( " <TR Align=center align=middle width='4%' bgColor=#e1e1e1 height=60><FONT face=Verdana  color=#0033CC  size=2><B>" & strTName & "</B></FONT>" )
+'			 		objOPFile1.writeLine( "</TR>" )
+'			 Exit Function
+'		End If
 
         strName = Split ( strTName , ";" , - 1 , 1 )
 '		Split the values inorder to check whether the given value is header or column value (  :: will be used to indicate Column Header )
@@ -601,4 +623,100 @@ Function Fn_QCLabInstanceCreate( strQCLabPath, strQCTestName, intCurrentTestID, 
 	Set qcConnect = Nothing
 
 End Function
+
+'*************************************************************************************************************************
+'	Function name	        :	FALMTestSetStatusChange
+'	Description	            :	To change the status of a particular testcase in a Testset 
+'	Pre-Condition(s)	    :	ALM Lab folder should contain all Tests in particular Test Sets
+'  	Input Argument(s)	    :   Testcase Status from the main function
+'	Return Value(s)		    :	None
+'	Created By		        :	Sukanya Ramanathan / Suriya Prakash Ravi
+'	Created On		        :	22-Mar-2013
+'*************************************************************************************************************************
+'  function usage.
+
+'	Call the function at the end of each test in QTP to update the status in ALM
+'  		strTestName 		- Test case Name in ALM LAB folfer
+'		strTestSetName		- Test Set Name under which test cases are available in ALM LAB folfer
+'		strTestcaseStatus	- Test Case status ( Passed / Failed ) to be updated.
+'*************************************************************************************************************************
+
+Function FALMTestSetStatusChange(strTestName, strTestSetName, strTestcaseStatus)
+
+	Dim qcConnect
+	Dim qcTreeMgr
+	Dim qcTestFactory
+	Dim qcLabTreeMgr
+	Dim qcLabFolder
+	Dim qcTestSetFactory
+	Dim qcFilter
+	Dim qcLst
+	Dim qcTestSet
+	Dim qctestInstanceFctry
+	Dim pTestInTestSetObj
+	Dim intTotalCaseCount
+	Dim intI
+	Dim strTempTstDetails
+	Dim strFlag
+	Dim strTemp
+	Dim strqcTempStatus
+	Dim pTestLst
+	Dim pTestItem
+
+	strQCLabPath = Environment("strQCLabPath")
+	UID = Environment("UID")
+	Pwd = Environment("Pwd")
+	Domain =  Environment("Domain")
+	Project = Environment("Project")
+	strTestStatusDetails = strTestName&"--"&strTestcaseStatus
+	
+	Set qcConnect = CreateObject("TDAPIOLE80.TDConnection")
+	qcConnect.InitConnectionEx Environment("ALMURL")
+	qcConnect.Login  UID, Pwd
+	qcConnect.Connect Domain , Project
+
+	If (qcConnect.connected <> True) Then		
+		MsgBox "QC Project Failed to Connect"			
+	Else	
+		Set qcTreeMgr = qcConnect.TreeManager 
+		Set qcTestFactory = qcConnect.TestFactory 
+		Set qcLabTreeMgr = qcConnect.TestSetTreeManager
+		Set qcLabFolder = qcLabTreeMgr.NodeByPath( strQCLabPath )
+		Set qcTestSetFactory = qcLabFolder.TestSetFactory
+		Set qcFilter = qcTestSetFactory.Filter
+		qcFilter.Filter("CY_CYCLE") = "'"& strTestSetName &"'" 'strQCTestName
+	
+		Set qcLst = qcTestSetFactory.NewList(qcFilter.Text)
+		Set qcTestSet = qcLst.Item(1)
+	
+		strTempTstDetails = Split( strTestStatusDetails, "--" )
+		strFlag = True
+		Set qctestInstanceFctry = qcTestSet.TSTestFactory
+		Set pTestItem = qctestInstanceFctry.Filter 		
+		pTestItem.Filter("TS_NAME") =  "'"& strTestName &"'"'Trim( CStr( strTempTstDetails( 0 ) ) )
+		Set pTestLst = qctestInstanceFctry.NewList( pTestItem.Text )
+		Set pTestInTestSetObj = pTestLst.Item( 1 )
+		
+		strqcTempStatus = Trim( CStr( strTempTstDetails( 1 ) ) )
+		pTestInTestSetObj.Status = strTestcaseStatus 
+		pTestInTestSetObj.Post
+		
+		Set pTestItem = Nothing
+		Set pTestLst = Nothing
+		Set pTestInTestSetObj = Nothing
+				
+		Set qctestInstanceFctry = Nothing
+		Set qcTestSet = Nothing
+		Set qcLst = Nothing
+		Set qcFilter = Nothing
+		Set qcTestSetFactory = Nothing
+		Set qcLabFolder = Nothing
+		Set qcLabTreeMgr = Nothing
+		Set qcTestFactory = Nothing
+		Set qcTreeMgr = Nothing
+		Set qcConnect = Nothing		
+	End If
+		
+End Function
+
 '------------------------------------------------------- End Of Fucctions -----------------------------------------------------------
