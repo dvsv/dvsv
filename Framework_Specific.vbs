@@ -81,15 +81,15 @@ Function Fn_Interface (  )
 	intPositionY = 25
 
 	objCollection.Add "lblInputXML", Fn_Label( "sInputXML", "lblInputXML", 35, intPositionY )
-	objCollection.Add "txtInputXML", Fn_TextBox( "","txtInputXML",235,intPositionY )
+	objCollection.Add "txtInputXML", Fn_TextBox( "C:\Automation\PPC Web Service Automation\InputData\Request_OPF-PPC.xml","txtInputXML",235,intPositionY )
 	intPositionY = intPositionY + 25
 
-	objCollection.Add "lblRacfPwd", Fn_Label( "RACF Password", "lblAppPath", 35, intPositionY )
-	objCollection.Add "txtRacfPwd", Fn_EncodedTextBox( "","txtAppPath",235,intPositionY )
-	intPositionY = intPositionY + 25
+'	objCollection.Add "lblRacfPwd", Fn_Label( "RACF Password", "lblAppPath", 35, intPositionY )
+'	objCollection.Add "txtRacfPwd", Fn_TextBox( "","txtAppPath",235,intPositionY )
+'	intPositionY = intPositionY + 25
 
 	objCollection.Add "lblAppPath", Fn_Label( "Application Path", "lblAppPath", 35, intPositionY )
-	objCollection.Add "txtAppPath", Fn_TextBox( "Application Path","txtAppPath",235,intPositionY )
+	objCollection.Add "txtAppPath", Fn_TextBox( "http://rdxzn0c:8282/ppcservice/services/ppcPort?wsdl","txtAppPath",235,intPositionY )
 	intPositionY = intPositionY + 25
 	objCollection.Add "lblDtName", Fn_Label( "Datatable Name", "lblDtName", 35, intPositionY )
 	objCollection.Add "txtDtName", Fn_TextBox( "DataSheet.xls","txtDtName",235,intPositionY )
@@ -128,7 +128,7 @@ Function Fn_Interface (  )
 	oForm.ShowDialog
 
 	Environment("sInputXML") = objCollection.Item( "txtInputXML" ).Text 
-	Environment("RacfPwd") = Crypt.Encrypt(objCollection.Item( "lblRacfPwd" ).Text )
+	'Environment("RacfPwd") = Crypt.Encrypt(objCollection.Item( "lblRacfPwd" ).Text )
 	Environment("AppPath") = objCollection.Item( "txtAppPath" ).Text 
 	Environment("DTName") = objCollection.Item( "txtDtName" ).Text
 	Environment("Output") = Trim( Replace( objCollection.Item( "cmbRptFmt" ).Text, "Report", "" ) )
@@ -148,7 +148,7 @@ Function Fn_Interface (  )
 	Set objCollection = Nothing
 	Set oForm = Nothing
 	Set objWorkSheet = Nothing
-	SystemUtil.CloseProcessByName ("excel.exe")
+	'SystemUtil.CloseProcessByName ("excel.exe")
 
 End Function
 
@@ -158,21 +158,21 @@ End Function
 Function Fn_Configuration ( strCheck )
 
 	If LCase(strCheck) = "setup" Then
-		Environment.LoadFromFile(Environment("TestLocation") &"\InputData\Environment.xml")
+'		Environment.LoadFromFile(Environment("TestLocation") &"\InputData\Environment.xml")
 		Environment("DatatableLocation") = Environment("TestLocation") &"\InputData\"& Environment( "DTName" )
 		Environment("Result_Location")  = Environment("TestLocation") &"\OutputFiles\"
 		Environment("ScreenShot") = Environment("TestLocation") &"\OutputFiles\ScreenShot\"
 	ElseIf LCase(strCheck) = "modulestart" Then
 '		RepositoriesCollection.Add( Environment("TestLocation") &"\Repository\Repository.tsr" )
-		If Setting("IsInTestDirectorTest") Then
-			Call Fn_QCTestDetails ( "Create", QCFolderPath( ) &";"& QCUtil.CurrentTestSet.Name &";"& QCUtil.CurrentRun.TestId &";"& QCutil.CurrentTestSetTest.ID )
-		End If
+'		If Setting("IsInTestDirectorTest") Then
+'			Call Fn_QCTestDetails ( "Create", QCFolderPath( ) &";"& QCUtil.CurrentTestSet.Name &";"& QCUtil.CurrentRun.TestId &";"& QCutil.CurrentTestSetTest.ID )
+'		End If
 	ElseIf LCase(strCheck) = "moduleend" Then
-		If Environment("Output") = "HTML" Then
+'		If Environment("Output") = "HTML" Then
 			Call Fn_CreateHTML( "End", Environment( "strCurModule" ) )
-		End If
-		Call Fn_QCResultUpdate( )
-		Call Fn_QCInstanceCreation( )
+'		End If
+'		Call Fn_QCResultUpdate( )
+'		Call Fn_QCInstanceCreation( )
 		RepositoriesCollection.RemoveAll
 	End If
 
@@ -308,11 +308,11 @@ Function Fn_TestCaseSelector ( objWorkSheet, strModule )
 
 	strTemp = ""
 	For intI = 1 To intJ
-
+On error resume next
 		If objCollection.Item( "chkTestCase"& intI ).Checked Then
 			strTemp = strTemp &";"& objCollection.Item( "chkTestCase"& intI ).Text
 		End If
-
+On error goto 0
 	Next
 	Set objCollection = Nothing
 	Set Fn_TestCaseSelector = CreateObject( "Scripting.Dictionary" )
